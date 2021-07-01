@@ -1,5 +1,6 @@
 import * as restify from 'restify';
 import fetch from 'node-fetch';
+import * as corsMiddleware from "restify-cors-middleware";
 
 const server = restify.createServer({
     name: 'mercado-libre',
@@ -25,11 +26,65 @@ const fetchApi = (url) => {
 
 server.use(restify.plugins.queryParser())
 
+const corsOptions: corsMiddleware.Options = {
+    preflightMaxAge: 10,
+    origins: ['*'],
+    allowHeaders: ['*'],
+    exposeHeaders: ['x-custom-header']
+};
+const cors: corsMiddleware.CorsMiddleware = corsMiddleware(corsOptions);
+
+server.pre(cors.preflight);
+
+server.use(cors.actual);
+
 const getProducts = async (q): Promise<any> => {
-    return (await fetchApi(`https://api.mercadolibre.com/sites/MLA/search?q=${q}`))
+    return (await fetchApi(`https://api.mercadolibre.com/sites/MLA/search?q=${q}`));
 }
+
+const getProductDescription = async (id): Promise<any> => {
+    return (await fetchApi(`https://api.mercadolibre.com/items/${id}/description`));
+}
+
+const getProductDetail = async (id): Promise<any> => {
+    return (await fetchApi(`https://api.mercadolibre.com/items/${id}`))
+}
+
+server.get('/api/items/:id', (req, resp, next) => {
+    (async () => {
+        const productDescription = await getProductDescription(req.params.id);
+        const productDetailResult = await getProductDetail(req.params.id);
+        let productDetail = {
+            id: productDetailResult.id,
+            title: productDetailResult.title,
+            price: {
+                currency: productDetailResult.currency_id,
+                amount: productDetailResult.price,
+                decimals: 0,
+            },
+            picture: productDetailResult.thumbnail,
+            condition: productDetailResult.condition,
+            free_shipping: productDetailResult.shipping.free_shipping,
+            sold_quantity: productDetailResult.sold_quantity,
+            description: productDescription.plain_text
+        }
+        resp.json({ 
+            author: {
+                name: "Bianca",
+                lastname: "Arantes"
+            },
+            item: productDetail,
+        });
+    })().catch((err) => {
+        console.log(err);
+    });
+    
+    return next();
+});
+
 server.get('/api/items', (req, resp, next) => {
     let p = req.query;
+    
     (async () => {
         const products = await getProducts(p.q);
         let productsResult =  products.results.map((product) => {
