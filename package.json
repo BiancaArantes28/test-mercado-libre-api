@@ -8,5 +8,12 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^2.6.1",
+    "restify": "6.3.4"
+  },
+  "devDependencies": {
+    "@types/restify": "5.0.6"
+  }
 }
